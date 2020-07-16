@@ -1,0 +1,78 @@
+<!-- MIT License -->
+<button style="font-size: 32px;" onclick="randomize()">
+    Randomize!
+</button>
+<script>
+// map of whether each operator is a modulator for each algorithm
+const modulatorMapping = [
+    [false, true, true, true],
+    [false, true, true, true],
+    [false, true, true, true],
+    [false, true, true, true],
+    [false, true, true, true],
+    [false, false, true, true],
+    [false, false, true, true],
+    [false, true, false, true],
+    [false, false, false, true],
+    [false, false, false, true],
+    [false, false, false, true],
+    [false, false, false, false],
+]
+
+let midiOutputs;
+let midi;
+navigator.requestMIDIAccess({sysex: true}).then((m) => midi = m, () => alert('failure'));
+
+function randomize() {
+    midiOutputs = [];
+    for (output of midi.outputs.values()) {
+        midiOutputs.push(output);
+    }
+
+    const algorithm = randInt(0, 0x0b);
+    randomizeCommon(algorithm);
+    randomizeOperator(0, modulatorMapping[algorithm][0]);
+    randomizeOperator(1, modulatorMapping[algorithm][1]);
+    randomizeOperator(2, modulatorMapping[algorithm][2]);
+    randomizeOperator(3, modulatorMapping[algorithm][3]);
+}
+
+function sendBytes(bytes) {
+    midiOutputs.forEach((output) => output.send(bytes));
+}
+
+function sendParameter(high, mid, low, data) {
+    sendBytes([
+        0xf0, 0x43, 0x10, 0x7f, 0x1c, 0x05,
+        high, mid, low, data,
+        0xf7
+    ])
+}
+
+function randInt(bottom, top) {
+    rangeSize = top - bottom;
+    return Math.round(Math.random() * rangeSize) + bottom;
+}
+
+function randomizeCommon(algorithm) {
+    sendParameter(0x30, 0, 0x10, algorithm);
+}
+
+function randomizeOperator(op, isMod) {
+    const feedbackLevel = randInt(0, 127);
+    sendParameter(0x31, op, 0x13, feedbackLevel);
+    const feedbackType = randInt(0, 1);
+    sendParameter(0x31, op, 0x14, feedbackType);
+
+    let outputLevel;
+    if (isMod) {
+        outputLevel = randInt(0, 127);
+    } else {
+        outputLevel = randInt(80, 127);
+    }
+    sendParameter(0x31, op, 0x12, outputLevel);
+
+    const frequencyCoarse = randInt(0, 4);
+    sendParameter(0x31, op, 0x16, frequencyCoarse);
+}
+</script>
